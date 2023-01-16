@@ -20,10 +20,14 @@ const usersRoute = require("./routes/users");
 const cartRoute = require("./routes/cart");
 const productCategoriesRoute = require("./routes/productCategories");
 const productsRoute = require("./routes/products");
+const deliveryFeesRoute = require("./routes/deliveryFees");
+const ordersRoute = require("./routes/orders");
 app.use("/api/users/", usersRoute);
 app.use("/api/cart/", cartRoute);
 app.use("/api/categories/", productCategoriesRoute);
 app.use("/api/products/", productsRoute);
+app.use("/api/deliveryfees/", deliveryFeesRoute);
+app.use("/api/orders/", ordersRoute);
 
 //404 route
 app.use("*", (req, res) => {

@@ -1,182 +1,126 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const router = express.Router();
+const { v4: uuidv4 } = require("uuid");
 const auth = require("../middleware/auth");
-const { verifyToken, getMyIp } = require("../helpers");
 
 const Orders = require("../model/orders");
 const Users = require("../model/users");
-const Facility = require("../model/facility");
 const Cart = require("../model/cart");
+const axios = require("axios");
+const { randomNumber } = require("../helpers");
 
-router.get("/all/", auth, (req, res) => {
-  Orders.find(
-    { customerId: req.user.user_id, status: "pending" },
-    (err, result) => {
-      if (err) {
-        return res.status(400).send(err);
-      } else {
-        return res.status(200).send({ result });
+const getOnlineTransactions = async () => {
+  try {
+    const transactions = await axios.get(
+      "https://mobile-mers-backend.onrender.com/api/v3/transactions/"
+    );
+    for (let i = 0; i < transactions.data.transactions.length; i++) {
+      await Orders.updateOne(
+        { transactionId: transactions.data.transactions[i].transactionId },
+        {
+          status: transactions.data.transactions[i].status,
+          // spTransactionId: transactions.data.transactions[i].spTransactionId,
+        }
+      );
+    }
+  } catch (error) {
+    return error.message;
+  }
+};
+
+router.get("/", auth, async (req, res) => {
+  try {
+    const transactions = [];
+    const onlineTransactions = await getOnlineTransactions();
+    const allTransactions = await Orders.find({
+      customerId: req.user._id,
+    });
+    for (let i = 0; i < allTransactions.length; i++) {
+      const products = await Cart.findOne({
+        orderId: allTransactions[i]._id,
+      });
+
+      transactions.push({
+        ...allTransactions[i]._doc,
+        products,
+      });
+    }
+    return res
+      .status(200)
+      .send({ msg: "Orders fetched successfully", orders: transactions });
+  } catch (error) {
+    return res.status(400).send({ msg: error.message });
+  }
+});
+
+router.post("/", auth, async (req, res) => {
+  const {
+    deliveryLocation,
+    deliveryDescription,
+    deliveryAmount,
+    cartTotal,
+    phoneNumber,
+  } = req.body;
+  const amount = Number(cartTotal) + Number(deliveryAmount);
+  try {
+    if (
+      !(
+        deliveryLocation &&
+        deliveryDescription &&
+        deliveryAmount &&
+        cartTotal &&
+        phoneNumber
+      )
+    ) {
+      return res.status(400).send({ msg: "All fields are required" });
+    }
+
+    //payment
+    const transactionId = uuidv4();
+    const organizationId = "10fddf2a-0883-41c0-aa6d-74c98ec3b792";
+    const description = "Payment";
+    const callbackUrl = `https://mobile-mers-backend.onrender.com/api/v3/transactions/`;
+
+    const pay = await axios.post(
+      "https://opay-api.oltranz.com/opay/paymentrequest",
+      {
+        telephoneNumber: phoneNumber,
+        amount: amount,
+        organizationId: organizationId,
+        description: description,
+        callbackUrl: callbackUrl,
+        transactionId: transactionId,
       }
-    }
-  );
-});
-
-// router.get("/master/", auth, (req, res) => {
-//   Orders.aggregate(
-//     [
-//       {
-//         $lookup: {
-//           from: "facilities",
-//           localField: "managerId",
-//           foreignField: "managerId",
-//           as: "facility",
-//         },
-//       },
-//     ],
-//     (err, result) => {
-//       if (err) {
-//         return res.status(400).send(err);
-//       } else {
-//         return res.status(200).send({ result });
-//       }
-//     }
-//   );
-// });
-
-router.get("/master/", auth, async (req, res) => {
-  try {
-    const result = [];
-    const trans = await Orders.find({});
-    for (let i = 0; i < trans.length; i++) {
-      const facility = await Facility.find({
-        managerId: trans[i].managerId,
-      });
-      const customer = await Users.find({ _id: trans[i].customerId });
-      result.push({ ...trans[i]._doc, facility, customer });
-    }
-    return res.status(200).send({ result });
-  } catch (error) {
-    return res.status(400).send(error.message);
-  }
-});
-
-router.get("/manager/", auth, async (req, res) => {
-  try {
-    const result = [];
-    const trans = await Orders.find({ managerId: req.user.user_id });
-    for (let i = 0; i < trans.length; i++) {
-      const facility = await Facility.find({
-        managerId: trans[i].managerId,
-      });
-      const customer = await Users.find({ _id: trans[i].customerId });
-      result.push({ ...trans[i]._doc, facility, customer });
-    }
-    return res.status(200).send({ result });
-  } catch (error) {
-    return res.status(400).send(error.message);
-  }
-});
-
-router.post("/add/", async (req, res) => {
-  const { managerId, price, roomType, description, image } = req.body;
-  try {
-    if (req.body?.token && verifyToken(req.body?.token)) {
-      const order = await Orders.find({
-        managerId: managerId,
-        clientId: verifyToken.user_id,
-        status: "pending",
+    );
+    if (pay) {
+      const order = await Orders.create({
+        orderId: randomNumber(),
+        status: pay.data.status,
+        transactionId,
+        customerId: req.user._id,
+        totalAmount: amount,
+        deliveryLocation,
+        deliveryDescription,
+        momoNumber: phoneNumber,
+        deliveryAmount,
       });
 
-      if (order.length > 0) {
-        res.status(400).send({
-          msg: "Room already exists.",
-        });
-      } else {
-        const rm = await Orders.create({
-          roomNumber,
-          price,
-          type: roomType,
-          description,
-          image,
-          facilityId: "",
-          managerId: req.user.user_id,
-        });
-        res.status(201).json({
-          msg: "Room created successfull!",
-          room: rm,
-        });
-      }
-    } else {
-      //ip address
+      //update cart
+      await Cart.updateMany(
+        {
+          customerId: req.user._id,
+          paymentInitialised: false,
+        },
+        { orderId: order._id, paymentInitialised: true }
+      );
+      //udpate cart
+      return res.status(201).json({ msg: pay.data.description, success: true });
     }
+
+    //payment
   } catch (error) {
-    res.status(400).send({ msg: error.message });
+    return res.status(400).send({ msg: error.message });
   }
-});
-
-router.post("/update/", auth, (req, res) => {
-  const { price, description, id } = req.body;
-  Orders.updateOne(
-    { managerId: req.user.user_id, _id: id },
-    { description, price },
-    (err, result) => {
-      if (err) {
-        return res.status(400).send({ msg: err.message });
-      } else {
-        res.status(200).send({ result });
-      }
-    }
-  );
-});
-
-router.post("/delete/", auth, (req, res) => {
-  const { id } = req.body;
-  Orders.deleteOne({ managerId: req.user.user_id, _id: id }, (err, result) => {
-    if (err) {
-      return res.status(400).send({ msg: err.message });
-    } else {
-      res.status(200).send({ result });
-    }
-  });
-});
-
-router.get("/find/:status", auth, async (req, res) => {
-  try {
-    const status = req.params["status"];
-    const result = [];
-    let query = {};
-    if (status === "all") {
-      query = { managerId: req.user.user_id };
-    } else {
-      query = { managerId: req.user.user_id, status };
-    }
-
-    const results = await Orders.find(query);
-
-    for (let i = 0; i < results.length; i++) {
-      const customer = await Users.findOne({ _id: results[i].customerId });
-      result.push({
-        order: results[i],
-        customer: { name: customer?.fullName, email: customer?.email },
-      });
-    }
-    return res.status(200).send({ result });
-  } catch (error) {
-    return res.status(400).send(err.message);
-  }
-});
-
-router.get("/orderDetails/:id", auth, (req, res) => {
-  const id = req.params["id"];
-  Cart.find({ orderId: id, managerId: req.user.user_id }, (err, result) => {
-    if (err) {
-      return res.status(400).send({ msg: err.message });
-    } else {
-      return res.status(200).send({ result });
-    }
-  });
 });
 
 module.exports = router;

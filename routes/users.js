@@ -63,7 +63,7 @@ router.post("/login", async (req, res) => {
 router.post("/updateInfo/", auth, (req, res) => {
   const { name, phone } = req.body;
   Users.updateOne(
-    { _id: req.user.user_id },
+    { _id: req.user._id },
     { fullName: name, phone },
     (err, result) => {
       if (err) {
@@ -91,11 +91,11 @@ router.post("/userInfo/", auth, (req, res) => {
 router.post("/updatePassword/", auth, async (req, res) => {
   const { newPwd, currentPwd } = req.body;
   try {
-    const user = await Users.findOne({ _id: req.user.user_id });
+    const user = await Users.findOne({ _id: req.user._id });
     if (user && (await bcrypt.compare(currentPwd, user.password))) {
       encryptedPassword = await bcrypt.hash(newPwd, 10);
       Users.updateOne(
-        { _id: req.user.user_id },
+        { _id: req.user._id },
         { password: encryptedPassword },
         (err, result) => {
           if (err) {
@@ -119,7 +119,7 @@ router.post("/updatePassword/", auth, async (req, res) => {
 router.post("/editInfo", auth, async (req, res) => {
   const { phone, fullName } = req.body;
   try {
-    await Users.updateOne({ _id: req.user.user_id }, { phone, fullName });
+    await Users.updateOne({ _id: req.user._id }, { phone, fullName });
     res.status(201).send({
       msg: "User info updated successfull!",
     });
@@ -176,7 +176,7 @@ router.post("/register", async (req, res) => {
     // Create token
     const token = jwt.sign(
       {
-        user_id: user._id,
+        _id: user._id,
         email,
         fullName,
         role: user.role,

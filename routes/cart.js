@@ -8,7 +8,7 @@ const { verifyToken, getMyIp } = require("../helpers");
 const Cart = require("../model/cart");
 const Orders = require("../model/orders");
 
-router.get("/all/", (req, res) => {
+router.get("/", (req, res) => {
   const token =
     req.body.token || req.query.token || req.headers["access-token"];
   if (!token) {
@@ -25,7 +25,7 @@ router.get("/all/", (req, res) => {
   } else {
     if (verifyToken(token)) {
       Cart.find(
-        { customerId: verifyToken(token).user_id, paymentInitialised: false },
+        { customerId: verifyToken(token)._id, paymentInitialised: false },
         (err, result) => {
           if (err) {
             return res.status(400).send(err);
@@ -49,11 +49,11 @@ router.post("/cancelOrder/", auth, async (req, res) => {
       pickupDate,
       pickupTime,
       managerId,
-      customerId: req.user.user_id,
+      customerId: req.user._id,
     });
     await Cart.updateMany(
       {
-        customerId: req.user.user_id,
+        customerId: req.user._id,
         paymentInitialised: false,
       },
       { paymentInitialised: true, orderId: newOrder._id }
@@ -77,11 +77,11 @@ router.post("/completedOrder/", auth, async (req, res) => {
       pickupTime,
       managerId,
       transactionId,
-      customerId: req.user.user_id,
+      customerId: req.user._id,
     });
     await Cart.updateMany(
       {
-        customerId: req.user.user_id,
+        customerId: req.user._id,
         paymentInitialised: false,
       },
       { paymentInitialised: true, orderId: newOrder._id }
@@ -98,7 +98,7 @@ router.post("/completedOrder2/", auth, async (req, res) => {
   const { i, totalAmount, transactionId } = req.body;
   try {
     await Orders.updateOne(
-      { _id: i, customerId: req.user.user_id },
+      { _id: i, customerId: req.user._id },
       {
         status: "paid",
         transactionId,
@@ -107,7 +107,7 @@ router.post("/completedOrder2/", auth, async (req, res) => {
     );
     await Cart.updateMany(
       {
-        customerId: req.user.user_id,
+        customerId: req.user._id,
         paymentInitialised: false,
       },
       { paymentInitialised: true, orderId: i }
@@ -120,29 +120,13 @@ router.post("/completedOrder2/", auth, async (req, res) => {
   }
 });
 
-router.post("/add/", async (req, res) => {
-  const {
-    managerId,
-    price,
-    quantity,
-    facilityName,
-    menuName,
-    menuId,
-    menuDescription,
-    menuImage,
-  } = req.body;
+router.post("/", async (req, res) => {
+  const { price, quantity, productId } = req.body;
   try {
     if (req.body?.token && verifyToken(req.body?.token)) {
-      //delete
-      await Cart.deleteMany({
-        managerId: { $ne: managerId },
-        customerId: verifyToken(req.body.token).user_id,
-        paymentInitialised: false,
-      });
-
       const itemExists = await Cart.findOne({
-        menuId: menuId,
-        customerId: verifyToken(req.body.token).user_id,
+        productId,
+        customerId: verifyToken(req.body.token)._id,
         paymentInitialised: false,
       });
 
@@ -153,30 +137,18 @@ router.post("/add/", async (req, res) => {
       }
 
       const rm = await Cart.create({
-        menuId: menuId,
-        menuName: menuName,
-        menuImage: menuImage,
-        menuDescription: menuDescription,
-        customerId: verifyToken(req.body.token).user_id,
-        quantity: quantity,
+        productId,
+        customerId: verifyToken(req.body.token)._id,
+        quantity,
         price: price,
-        managerId: managerId,
-        facilityName: facilityName,
       });
       res.status(201).json({
         msg: "Item Added to cart successfull!",
         item: rm,
       });
     } else {
-      //delete
-      await Cart.deleteMany({
-        managerId: { $ne: managerId },
-        ipAddress: getMyIp(req),
-        paymentInitialised: false,
-      });
-
       const itemExists = await Cart.findOne({
-        menuId: menuId,
+        productId,
         ipAddress: getMyIp(req),
         paymentInitialised: false,
       });
@@ -188,15 +160,10 @@ router.post("/add/", async (req, res) => {
       }
 
       const rm = await Cart.create({
-        menuId: menuId,
-        menuName: menuName,
-        menuImage: menuImage,
-        menuDescription: menuDescription,
+        productId,
         ipAddress: getMyIp(req),
         quantity: quantity,
         price: price,
-        managerId: managerId,
-        facilityName: facilityName,
       });
       res.status(201).json({
         msg: "Item Added to cart successfull!",
@@ -213,7 +180,7 @@ router.post("/giveCart/", auth, async (req, res) => {
     await Cart.updateMany(
       { ipAddress: getMyIp(req) },
       {
-        customerId: req.user.user_id,
+        customerId: req.user._id,
         ipAddress: "",
       }
     );
@@ -230,7 +197,7 @@ router.post("/update/", async (req, res) => {
   try {
     if (req.body?.token && verifyToken(req.body?.token)) {
       await Cart.updateOne(
-        { _id: id, customerId: verifyToken(req.body.token).user_id },
+        { _id: id, customerId: verifyToken(req.body.token)._id },
         {
           quantity: quantity,
         }
@@ -260,7 +227,7 @@ router.post("/delete/", async (req, res) => {
     if (req.body?.token && verifyToken(req.body?.token)) {
       await Cart.deleteOne({
         _id: id,
-        customerId: verifyToken(req.body.token).user_id,
+        customerId: verifyToken(req.body.token)._id,
         paymentInitialised: false,
       });
       res.status(201).json({
