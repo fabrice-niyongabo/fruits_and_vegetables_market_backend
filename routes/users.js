@@ -128,7 +128,7 @@ router.post("/editInfo", auth, async (req, res) => {
   }
 });
 
-router.post("/getAll/", auth, async (req, res) => {
+router.get("/getAll/", auth, async (req, res) => {
   try {
     const users = await Users.find({ role: "user" });
     res.status(200).send({

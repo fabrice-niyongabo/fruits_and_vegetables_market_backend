@@ -3,7 +3,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 const auth = require("../middleware/auth");
-const { verifyToken, getMyIp } = require("../helpers");
 
 const Categories = require("../model/productCategories");
 
@@ -34,8 +33,8 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/", auth, (req, res) => {
-  const { name, id } = req.body;
-  Categories.updateOne({ _id: id }, { name }, (err, result) => {
+  const { name, _id } = req.body;
+  Categories.updateOne({ _id }, { name }, (err, result) => {
     if (err) {
       return res.status(400).send({ msg: err.message });
     } else {
