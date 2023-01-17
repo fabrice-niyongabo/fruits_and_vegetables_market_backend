@@ -36,7 +36,7 @@ router.get("/", auth, async (req, res) => {
       customerId: req.user._id,
     });
     for (let i = 0; i < allTransactions.length; i++) {
-      const products = await Cart.findOne({
+      const products = await Cart.find({
         orderId: allTransactions[i]._id,
       });
 
