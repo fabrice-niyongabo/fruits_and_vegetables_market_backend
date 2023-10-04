@@ -70,7 +70,12 @@ const cloudnaryImageUpload = async (req) => {
       resource_type: "auto", // or 'image', 'video', etc., based on your requirements
     });
 
-    await fs.unlink(req.file.path);
+    // Delete the file from the "uploads" directory
+    try {
+      await fs.promises.unlink(req.file.path);
+    } catch (unlinkError) {
+      console.error("Error deleting file:", unlinkError);
+    }
 
     return {
       public_id: result.public_id,
@@ -81,7 +86,11 @@ const cloudnaryImageUpload = async (req) => {
       secure_url: result.secure_url,
     };
   } catch (error) {
-    console.log({ error });
+    try {
+      await fs.promises.unlink(req.file.path);
+    } catch (unlinkError) {
+      console.error("Error deleting file:", unlinkError);
+    }
     throw {
       ...error,
       message:
