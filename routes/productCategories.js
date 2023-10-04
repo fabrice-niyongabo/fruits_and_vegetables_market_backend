@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 
 const Categories = require("../model/productCategories");
+const { uploadImage, cloudnaryImageUpload } = require("../helpers");
 
 router.get("/", (req, res) => {
   Categories.find({}, (err, result) => {
@@ -14,9 +15,14 @@ router.get("/", (req, res) => {
   });
 });
 
-router.post("/", async (req, res) => {
-  const { name, image } = req.body;
+router.post("/", uploadImage.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ msg: "No image file provided" });
+  }
+
   try {
+    const { name } = req.body;
+    const image = await cloudnaryImageUpload(req);
     const rm = await Categories.create({
       name,
       image,

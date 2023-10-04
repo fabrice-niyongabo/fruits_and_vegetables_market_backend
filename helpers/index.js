@@ -1,5 +1,6 @@
+const fs = require("fs");
 const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
+const path = require("path");
 const jwt = require("jsonwebtoken");
 
 const getMyIp = (req) => {
@@ -46,23 +47,42 @@ const randomNumber = () => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-const storage = multer.memoryStorage();
+//image uploader
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
 const uploadImage = multer({ storage: storage });
 
 const cloudnaryImageUpload = async (req) => {
+  const cloudinary = require("cloudinary").v2;
   try {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_NAME,
       api_key: process.env.CLOUDNARY_API_KEY,
       api_secret: process.env.CLOUDNARY_API_SECRET,
     });
-    const result = await cloudinary.uploader.upload(req.file.buffer, {
+    const result = await cloudinary.uploader.upload(req.file.path, {
       resource_type: "auto", // or 'image', 'video', etc., based on your requirements
     });
 
-    return result;
+    await fs.unlink(req.file.path);
+
+    return {
+      public_id: result.public_id,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      resource_type: result.resource_type,
+      secure_url: result.secure_url,
+    };
   } catch (error) {
-    return error;
+    console.log({ error });
+    throw error;
   }
 };
 
