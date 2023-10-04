@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
+const cloudinary = require("cloudinary").v2;
 
 const Categories = require("../model/productCategories");
 const { uploadImage, cloudnaryImageUpload } = require("../helpers");
@@ -47,15 +48,20 @@ router.put("/", auth, (req, res) => {
   });
 });
 
-router.delete("/:id", auth, (req, res) => {
-  const id = req.params["id"];
-  Categories.deleteOne({ _id: id }, (err, result) => {
-    if (err) {
-      return res.status(400).send({ msg: err.message });
-    } else {
-      res.status(200).send({ result });
-    }
-  });
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const id = req.params["id"];
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDNARY_API_KEY,
+      api_secret: process.env.CLOUDNARY_API_SECRET,
+    });
+    const category = await Categories.findByIdAndDelete({ _id: id });
+    await cloudinary.uploader.destroy(category.image?.public_id);
+    return res.status(200).send({ msg: "category deleted" });
+  } catch (error) {
+    return res.status(400).send({ msg: err.message });
+  }
 });
 
 module.exports = router;
