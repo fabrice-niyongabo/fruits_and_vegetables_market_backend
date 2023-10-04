@@ -1,4 +1,5 @@
 const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
 const path = require("path");
 const jwt = require("jsonwebtoken");
@@ -59,7 +60,6 @@ const storage = multer.diskStorage({
 const uploadImage = multer({ storage: storage });
 
 const cloudnaryImageUpload = async (req) => {
-  const cloudinary = require("cloudinary").v2;
   try {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_NAME,
