@@ -1,3 +1,5 @@
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
 const jwt = require("jsonwebtoken");
 
 const getMyIp = (req) => {
@@ -44,9 +46,31 @@ const randomNumber = () => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
+const storage = multer.memoryStorage();
+const uploadImage = multer({ storage: storage });
+
+const cloudnaryImageUpload = async (req) => {
+  try {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDNARY_API_KEY,
+      api_secret: process.env.CLOUDNARY_API_SECRET,
+    });
+    const result = await cloudinary.uploader.upload(req.file.buffer, {
+      resource_type: "auto", // or 'image', 'video', etc., based on your requirements
+    });
+
+    return result;
+  } catch (error) {
+    return error;
+  }
+};
+
 module.exports = {
   verifyToken,
   calCulateDistance,
   randomNumber,
   getMyIp,
+  cloudnaryImageUpload,
+  uploadImage,
 };
