@@ -60,7 +60,7 @@ router.delete("/:id", auth, async (req, res) => {
     await cloudinary.uploader.destroy(category.image?.public_id);
     return res.status(200).send({ msg: "category deleted" });
   } catch (error) {
-    return res.status(400).send({ msg: err.message });
+    return res.status(400).send({ msg: error.message });
   }
 });
 
