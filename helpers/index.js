@@ -82,7 +82,11 @@ const cloudnaryImageUpload = async (req) => {
     };
   } catch (error) {
     console.log({ error });
-    throw error;
+    throw {
+      ...error,
+      message:
+        "Error while uploading image to cloudinary. Error:" + error.message,
+    };
   }
 };
 
