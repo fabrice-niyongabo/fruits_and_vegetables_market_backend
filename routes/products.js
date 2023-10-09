@@ -6,6 +6,7 @@ const auth = require("../middleware/auth");
 const Categories = require("../model/productCategories");
 
 const Products = require("../model/products");
+const { uploadImage, cloudnaryImageUpload } = require("../helpers");
 
 router.get("/", async (req, res) => {
   try {
@@ -23,12 +24,16 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
-  const { name, image, categoryId, price, description } = req.body;
+router.post("/", auth, uploadImage.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ msg: "No image file provided" });
+  }
+  const { name, categoryId, price, description } = req.body;
   try {
-    if (!(name && image && categoryId && price)) {
+    if (!(name && categoryId && price)) {
       return res.status(400).send({ msg: "All fields are required" });
     }
+    const image = await cloudnaryImageUpload(req);
     const rm = await Products.create({
       name,
       image,
@@ -37,7 +42,7 @@ router.post("/", async (req, res) => {
       description,
     });
     return res.status(201).send({
-      msg: "Product registered successfull!",
+      msg: "Product added successfull!",
       product: rm,
     });
   } catch (error) {

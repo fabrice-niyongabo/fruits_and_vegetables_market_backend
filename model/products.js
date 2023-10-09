@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   categoryId: { type: String, required: true },
   price: { type: Number, required: true },
   description: { type: String },
-  image: { type: String, required: true },
+  image: { type: Object, required: true },
   createdAt: { type: String, default: new Date() },
 });
 

@@ -16,7 +16,7 @@ router.get("/", (req, res) => {
   });
 });
 
-router.post("/", uploadImage.single("image"), async (req, res) => {
+router.post("/", auth, uploadImage.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ msg: "No image file provided" });
   }
