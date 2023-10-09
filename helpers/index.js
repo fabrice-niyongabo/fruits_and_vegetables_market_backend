@@ -62,6 +62,17 @@ const storage = multer.diskStorage({
 });
 const uploadImage = multer({ storage: storage });
 
+const deleteImageFromCloudinary = async (public_id) => {
+  try {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDNARY_API_KEY,
+      api_secret: process.env.CLOUDNARY_API_SECRET,
+    });
+    await cloudinary.uploader.destroy(public_id);
+  } catch (error) {}
+};
+
 const cloudnaryImageUpload = async (req) => {
   try {
     cloudinary.config({
@@ -109,4 +120,5 @@ module.exports = {
   getMyIp,
   cloudnaryImageUpload,
   uploadImage,
+  deleteImageFromCloudinary,
 };

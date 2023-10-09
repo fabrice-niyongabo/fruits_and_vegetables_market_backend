@@ -6,7 +6,11 @@ const auth = require("../middleware/auth");
 const Categories = require("../model/productCategories");
 
 const Products = require("../model/products");
-const { uploadImage, cloudnaryImageUpload } = require("../helpers");
+const {
+  uploadImage,
+  cloudnaryImageUpload,
+  deleteImageFromCloudinary,
+} = require("../helpers");
 
 router.get("/", async (req, res) => {
   try {
@@ -46,6 +50,7 @@ router.post("/", auth, uploadImage.single("image"), async (req, res) => {
       product: rm,
     });
   } catch (error) {
+    console.log({ error });
     return res.status(400).send({ msg: error.message });
   }
 });
@@ -65,15 +70,18 @@ router.put("/", auth, (req, res) => {
   );
 });
 
-router.delete("/:id", auth, (req, res) => {
-  const id = req.params["id"];
-  Products.deleteOne({ _id: id }, (err, result) => {
-    if (err) {
-      return res.status(400).send({ msg: err.message });
-    } else {
-      res.status(200).send({ result });
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const id = req.params["id"];
+    const product = await Products.findById({ _id: id });
+    if (!product) {
+      return res.status(400).send({ msg: "Invalid product" });
     }
-  });
+    await Products.deleteOne({ _id: id });
+    await deleteImageFromCloudinary(product.image?.public_id);
+  } catch (error) {
+    return res.status(400).send({ msg: err.message });
+  }
 });
 
 module.exports = router;
